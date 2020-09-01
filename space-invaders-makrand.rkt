@@ -3,8 +3,9 @@
 #reader(lib "htdp-beginner-abbr-reader.ss" "lang")((modname space-invaders-makrand) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f () #f)))
 (require 2htdp/universe)
 (require 2htdp/image)
+(require racket/list)
 
-;; Space Invaders
+;; Space Invaders By Makrand Sumant
 
 
 ;; Constants:
@@ -169,7 +170,7 @@
     ))
 
 
-;---------------------- Tank Functions -------------------------------------------------------------------
+;=====================================================    Tank Functions   =================================================================
 ;; Tank -> Tank
 ;; Changes Tank's x coordinate by TANK-SPEED depending on the tank's direction
 (check-expect (next-tank (make-tank (/ WIDTH 2) 1)) (make-tank (+ (/ WIDTH 2) TANK-SPEED) 1))
@@ -214,7 +215,7 @@
   )
 
 
-;---------------------- Invader Functions -------------------------------------------------------------------
+;=====================================================    Invader Functions   =================================================================
 ;; Invader -> Invader
 ;; Changes Invader's x coordinate by INVADER-X-SPEED & y coordinates by INVADER-Y-SPEED. Direction is reversed if x and y coordinates reach the screen x & y coordinates resp.
 (check-expect (next-invader (make-invader (/ WIDTH 2) 50 1)) (make-invader (+ (/ WIDTH 2) (* INVADER-X-SPEED 1)) (+ 50 INVADER-Y-SPEED) 1)) ;; at centre moving right -> keep moving
@@ -236,7 +237,6 @@
           (make-invader(+ (invader-x invader) (* INVADER-X-SPEED (invader-dx invader))) (+ (invader-y invader) INVADER-Y-SPEED) (invader-dx invader))]
         )
   )
-
 
 
 ;; ListOfInvaders -> ListOfInvaders
@@ -272,18 +272,20 @@
 
 ;; ListOfInvaders -> ListOfInvaders
 ;; Randomly creates a new invader and adds it to the passed list of invaders.
-(check-random (add-invader empty) (cond [(> INVADE-RATE (random 5000)) (cons (make-invader (random WIDTH) 10 1) empty)]
+(check-random (add-invader empty) (cond [(> INVADE-RATE (random 5000)) (cons (make-invader (random WIDTH) 10 (if (> 5 (random 10)) 1 -1)) empty)]
                                         [else empty]))
-(check-random (add-invader LOI2) (cond [(> INVADE-RATE (random 5000)) (cons (make-invader (random WIDTH) 10 1) LOI2)]
+(check-random (add-invader LOI2) (cond [(> INVADE-RATE (random 5000)) (cons (make-invader (random WIDTH) 10 (if (> 5 (random 10)) 1 -1)) LOI2)]
                                        [else LOI2]))
 
 (define (add-invader loi)
-  (cond [(> INVADE-RATE (random 5000)) (cons (make-invader (random WIDTH) 10 1) loi)]
+  (cond [(> INVADE-RATE (random 5000)) (cons (make-invader (random WIDTH) 10 (if (> 5 (random 10)) 1 -1)) loi)]
         [else loi])
   )
 
 ;; ListOfInavader ListOfMissiles -> ListOfInvaders
 ;; Destroyes invaders which come under hit range of passed in missiles.
+(check-expect (destroy-invaders empty (cons M1 (cons (make-missile 300 200)  empty))) empty)
+(check-expect (destroy-invaders (list I1 I4) empty) (list I1 I4))
 (check-expect (destroy-invaders (list I1 I4) LOM1) (list I1 I4))
 (check-expect (destroy-invaders (list I1 I4) LOM3) (list I4))
 (check-expect (destroy-invaders (list I1 I4) (list (make-missile (- (invader-x I4) 9) (+ (invader-y I4) 9)))) (list I1))
@@ -299,6 +301,7 @@
 
 ;; Invader ListOfMissiles -> Boolean
 ;; Produces true, if any of the missiles from ListOfMissiles hit the Invader.
+(check-expect (is-invader-hit? I1 empty) false)
 (check-expect (is-invader-hit? I1 (cons M1 (cons (make-missile 300 200)  empty))) false)
 (check-expect (is-invader-hit? I1 (cons M2 (cons (make-missile 300 200)  empty))) true)
 (check-expect (is-invader-hit? I4 (cons M2 (cons (make-missile (- (invader-x I4) 9) (+ (invader-y I4) 9))  empty))) true)
@@ -322,8 +325,23 @@
   (and (<= (abs (- (invader-x i)  (missile-x m))) HIT-RANGE)
        (<= (abs (- (invader-y i) (missile-y m))) HIT-RANGE)))
 
-;---------------------- Missile Functions -------------------------------------------------------------------
+;; ListOfInvader -> Boolean
+;; Produces true if any of the invaders has landed. 
+(check-expect (landed? empty) false)
+(check-expect (landed? (list I1 I2)) true)
+(check-expect (landed? (list I1)) false)
+(check-expect (landed? (list I3)) true)
 
+;;(define (landed? i) false) ;stub
+
+(define (landed? loi)
+  (cond[(empty? loi) false]
+       [else
+        (if (>= (invader-y (first loi)) HEIGHT)
+            true
+            (landed? (rest loi)))]))
+
+;=====================================================    Missile Functions   =================================================================
 ;; Missile -> Missile
 ;; Produces a Missile which represnts next state of the passed in missile. Decreases missiles y coordinate by MISSILE-SPEED.
 (check-expect (next-missile (make-missile (/ WIDTH 2) 50)) (make-missile (/ WIDTH 2) (- 50 MISSILE-SPEED))) ;; at centre
@@ -336,7 +354,7 @@
 
 
 ;; ListOfMissiles -> ListOfMissiles
-;; produces list containing next state of each of the missiles from the passed in list. Advances each of the missile in upword direction.
+;; produces list containing next state of each of the missiles from the passed in list. Advances each of the missile in upward direction.
 
 (check-expect (advance-missiles empty) empty)
 (check-expect (advance-missiles LOM2) (cons (make-missile 150 (- 300 MISSILE-SPEED)) (cons (make-missile (invader-x I1) (- (+ (invader-y I1) 10) MISSILE-SPEED)) empty)))
@@ -368,35 +386,44 @@
                      (render-missiles (rest lom) img))]))
 
 
+;; ListOfMissiles -> ListOfMissiles
+;; Cleans up missiles which leaves the screen, i.e. which have y coordinate < 0.
+(check-expect (cleanup-missiles empty) empty)
+(check-expect (cleanup-missiles LOM2) LOM2)
+(check-expect (cleanup-missiles (cons (make-missile 150 -3) LOM2)) LOM2)
 
-;---------------------- Game Functions -------------------------------------------------------------------
+;(define (cleanup-missiles LOM1) LOM1) ;stub
 
+(define (cleanup-missiles lom)
+  ( cond [(empty? lom) empty]
+         [else (if (< (missile-y (first lom)) 0)
+                   (cleanup-missiles (rest lom))
+                   (cons (first lom) (cleanup-missiles (rest lom)))
+                   )]
+  )
+)
+
+
+;=====================================================    Game Functions   =================================================================
 
 ;; Game -> Game
-;; Produces next game using below logic:
-;; Depending on the tanks's direction, increase or decrease tank's x co-ordinates by TANK-SPEED
-;; Crates new invaders randomly
-;; Moves invaders as per their direction
+;; Produces next game by:
+;; Moving tank in correct direction, increases or decreases tank's x co-ordinates by TANK-SPEED
+;; Crates new invaders randomly & removes invaders which get hit by missiles.
+;; Moves invaders as per their directions.
+;; Moves missiles in upward direction.
 
-;(check-expect (next-game (make-game empty empty (make-tank (/ WIDTH 2) 1))) (make-game empty empty (make-tank (+ (/ WIDTH 2) TANK-SPEED) 1)))
-;(check-expect (next-game (make-game empty empty (make-tank (/ WIDTH 2) -1))) (make-game empty empty (make-tank (- (/ WIDTH 2) TANK-SPEED) -1)))
-
-;(check-expect (next-game (make-game empty empty (make-tank (- WIDTH TANK-SPEED) 1))) (make-game empty empty (make-tank WIDTH 1)))                ; Tank reaches the right edge
-;(check-expect (next-game (make-game empty empty (make-tank TANK-SPEED -1))) (make-game empty empty (make-tank (- TANK-SPEED TANK-SPEED) -1)))    ; Tank reaches the left edge
-
-;(check-expect (next-game (make-game empty empty (make-tank (- WIDTH (- TANK-SPEED 1)) 1))) (make-game empty empty (make-tank WIDTH -1)))         ; Tank moves pass right edge
-;(check-expect (next-game (make-game empty empty (make-tank (- TANK-SPEED 1) -1))) (make-game empty empty (make-tank 0 1)))                       ; Tank mavoes pass left edge
-         
+;; Tests are redundant since individual functions have their tests.
     
 ;;(define (next-game g) G0) ;stub
 
 (define (next-game g)
-  (make-game (destroy-invaders (add-invader (advance-invaders (game-invaders g))) (game-missiles g)) (advance-missiles (game-missiles g))
+  (make-game (destroy-invaders (add-invader (advance-invaders (game-invaders g))) (game-missiles g)) (cleanup-missiles (advance-missiles (game-missiles g)))
              (next-tank (game-tank g))))
 
 ;; Game -> Image
-;; place appropriate Tank image on MTS at (game-tank c) and TANK-Y
-;; !!!
+;; Places appropriate Game Images in the following order using properties of passed in Game.
+;; Empty Scene -> Tank image -> All the Missiles -> Invaders. (Seq. bottom -> top)
 (define (render-game g) (render-invaders (game-invaders g) (render-missiles (game-missiles g) (render-tank (game-tank g))))) ;stub  
 
 
@@ -415,7 +442,6 @@
 
 ;; Game -> Boolean
 ;; returns true if any of the invader's Y co-ordinates is >= HEIGHT.
-;; !!!
 (check-expect (game-over? G1) false)
 (check-expect (game-over? G2) false)
 (check-expect (game-over? G3) true)
@@ -426,19 +452,3 @@
   (cond[(empty? (game-invaders g)) false]
        [else
         (landed? (game-invaders g))]))
-
-;; ListOfInvader -> Boolean
-;; Produces true if any of the invaders has landed. 
-(check-expect (landed? (list I1 I2)) true)
-(check-expect (landed? (list I1)) false)
-(check-expect (landed? (list I3)) true)
-
-;;(define (landed? i) false) ;stub
-
-
-(define (landed? loi)
-  (cond[(empty? loi) false]
-       [else
-        (if (>= (invader-y (first loi)) HEIGHT)
-            true
-            (landed? (rest loi)))]))
