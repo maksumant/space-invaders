@@ -81,7 +81,7 @@
 (define I1 (make-invader 150 100 1))           ;not landed, moving right
 (define I2 (make-invader 150 HEIGHT -1))       ;exactly landed, moving left
 (define I3 (make-invader 150 (+ HEIGHT 10) 1)) ;> landed, moving right
-
+(define I4 (make-invader 120 230 -1))
 
 #;
 (define (fn-for-invader invader)
@@ -129,7 +129,7 @@
 ;; ListOfMissiles is one of:
 ;;  - empty
 ;;  - (cons missile ListOfMissiles)
-;; interp. a list of invaders
+;; interp. a list of missiles
 (define LOM1 empty)
 (define LOM2 (cons M1 (cons M2 empty)))
 (define LOM3 (cons M1 (cons M2 (cons M3 empty))))
@@ -147,14 +147,10 @@
 ;; - reference: (first lom) 
 ;; - self-reference: (rest lom) is ListOfMissies
 
-;; ListOfMissiles -> ListOfMissiles
-;; produces list containing next state of each of the missiles from the passed in list.
-(define (next-lom lom) LOI2)
-
 
 (define G0 (make-game empty empty T0))
 (define G1 (make-game empty empty T1))
-(define G2 (make-game (list I1) (list M1) T1))
+(define G2 (make-game (list I1 I4) (list M1) T1))
 (define G3 (make-game (list I1 I2) (list M1 M2) T1))
 
 ;; =================
@@ -274,20 +270,74 @@
                      (invader-y (first loi))
                      (render-invaders (rest loi) img))]))
 
-;; Invader -> Image
-;; Places invader image at x coordinate of the passed in invader and TANK-Y on MTS.
-(check-expect (render-invader I1) (place-image INVADER (invader-x I1) (invader-y I1) MTS))
+;; ListOfInvaders -> ListOfInvaders
+;; Randomly creates a new invader and adds it to the passed list of invaders.
+(check-random (add-invader empty) (cond [(> INVADE-RATE (random 5000)) (cons (make-invader (random WIDTH) 10 1) empty)]
+                                        [else empty]))
+(check-random (add-invader LOI2) (cond [(> INVADE-RATE (random 5000)) (cons (make-invader (random WIDTH) 10 1) LOI2)]
+                                       [else LOI2]))
 
-(define (render-invader i)
-  (place-image INVADER (invader-x i) (invader-y i) MTS)
+(define (add-invader loi)
+  (cond [(> INVADE-RATE (random 5000)) (cons (make-invader (random WIDTH) 10 1) loi)]
+        [else loi])
   )
+
+
+;---------------------- Missile Functions -------------------------------------------------------------------
+
+;; Missile -> Missile
+;; Produces a Missile which represnts next state of the passed in missile. Decreases missiles y coordinate by MISSILE-SPEED.
+(check-expect (next-missile (make-missile (/ WIDTH 2) 50)) (make-missile (/ WIDTH 2) (- 50 MISSILE-SPEED))) ;; at centre
+
+;;(define (next-missile t) M1) ; stub
+
+(define (next-missile m)
+  (make-missile (missile-x m) (- (missile-y m) MISSILE-SPEED))
+  )
+
+
+;; ListOfMissiles -> ListOfMissiles
+;; produces list containing next state of each of the missiles from the passed in list. Advances each of the missile in upword direction.
+
+(check-expect (advance-missiles empty) empty)
+(check-expect (advance-missiles LOM2) (cons (make-missile 150 (- 300 MISSILE-SPEED)) (cons (make-missile (invader-x I1) (- (+ (invader-y I1) 10) MISSILE-SPEED)) empty)))
+
+;(define (advance-missiles lom) LOM2) ;stub
+
+(define (advance-missiles lom)
+  (cond[(empty? lom) empty]
+       [else
+        (cons (next-missile (first lom))
+              (advance-missiles (rest lom)))]))
+
+;; ListOfMissiles Image -> Image
+;; Places image of MISSILE for each missiles from passed in list. Uses passed in image as base image.
+(check-expect (render-missiles empty MTS) MTS)
+(check-expect (render-missiles (list M1 M2) MTS) (place-image MISSILE
+                                                              (missile-x M1)
+                                                              (missile-y M1) (place-image MISSILE
+                                                                                          (missile-x M2)
+                                                                                          (missile-y M2) MTS)))
+;(define (render-missiles lom img) img) ;stub
+
+(define (render-missiles lom img)
+  (cond[(empty? lom) img]
+       [else
+        (place-image MISSILE
+                     (missile-x (first lom))
+                     (missile-y (first lom))
+                     (render-missiles (rest lom) img))]))
+
 
 
 ;---------------------- Game Functions -------------------------------------------------------------------
 
 
 ;; Game -> Game
+;; Produces next game using below logic:
 ;; Depending on the tanks's direction, increase or decrease tank's x co-ordinates by TANK-SPEED
+;; Crates new invaders randomly
+;; Moves invaders as per their direction
 
 ;(check-expect (next-game (make-game empty empty (make-tank (/ WIDTH 2) 1))) (make-game empty empty (make-tank (+ (/ WIDTH 2) TANK-SPEED) 1)))
 ;(check-expect (next-game (make-game empty empty (make-tank (/ WIDTH 2) -1))) (make-game empty empty (make-tank (- (/ WIDTH 2) TANK-SPEED) -1)))
@@ -301,21 +351,14 @@
     
 ;;(define (next-game g) G0) ;stub
 
-#;
-(define (next-game s)
-  (... (fn-for-loi (game-invaders s))
-       (fn-for-lom (game-missiles s))
-       (fn-for-tank (game-tank s))))
-
-;; testing only
-(define (next-game s)
-  (make-game (advance-invaders (game-invaders s)) empty
-             (next-tank (game-tank s))))
+(define (next-game g)
+  (make-game (add-invader (advance-invaders (game-invaders g))) (advance-missiles (game-missiles g))
+             (next-tank (game-tank g))))
 
 ;; Game -> Image
 ;; place appropriate Tank image on MTS at (game-tank c) and TANK-Y
 ;; !!!
-(define (render-game g) (render-invaders (game-invaders g) (render-tank (game-tank g)))) ;stub  
+(define (render-game g) (render-invaders (game-invaders g) (render-missiles (game-missiles g) (render-tank (game-tank g))))) ;stub  
 
 
 ;; Game KeyEvent-> Game
@@ -327,6 +370,7 @@
 (define (handle-key g ke)
   (cond [(key=? ke "left") (make-game (game-invaders g) (game-missiles g) (turn-tank (game-tank g) -1))]
         [(key=? ke "right") (make-game (game-invaders g) (game-missiles g) (turn-tank (game-tank g) 1))]
+        [(key=? ke " ") (make-game (game-invaders g) (cons (make-missile (tank-x (game-tank g)) HEIGHT) (game-missiles g)) (game-tank g))]
         [else 
          g]))
 
