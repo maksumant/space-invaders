@@ -282,6 +282,45 @@
         [else loi])
   )
 
+;; ListOfInavader ListOfMissiles -> ListOfInvaders
+;; Destroyes invaders which come under hit range of passed in missiles.
+(check-expect (destroy-invaders (list I1 I4) LOM1) (list I1 I4))
+(check-expect (destroy-invaders (list I1 I4) LOM3) (list I4))
+(check-expect (destroy-invaders (list I1 I4) (list (make-missile (- (invader-x I4) 9) (+ (invader-y I4) 9)))) (list I1))
+
+;;(define (destroy-invaders loi lom) loi) ;stub
+
+(define (destroy-invaders loi lom)
+  (cond [(empty? loi) empty]
+        [(empty? lom) loi]
+        [else (if (is-invader-hit? (first loi) lom)
+                  (destroy-invaders (rest loi) lom)
+                  (cons (first loi) (destroy-invaders (rest loi) lom)))]))
+
+;; Invader ListOfMissiles -> Boolean
+;; Produces true, if any of the missiles from ListOfMissiles hit the Invader.
+(check-expect (is-invader-hit? I1 (cons M1 (cons (make-missile 300 200)  empty))) false)
+(check-expect (is-invader-hit? I1 (cons M2 (cons (make-missile 300 200)  empty))) true)
+(check-expect (is-invader-hit? I4 (cons M2 (cons (make-missile (- (invader-x I4) 9) (+ (invader-y I4) 9))  empty))) true)
+
+;;(define (is-invader-hit? i lom) false) ;stub
+
+(define (is-invader-hit? i lom)
+  (cond [(empty? lom) false]
+        [else (or (is-hit? i (first lom)) (is-invader-hit? i (rest lom)))
+              ]))
+
+;; Invader Missile -> Boolean
+;; Produce true if Missile is hitting Invader.
+(check-expect (is-hit? I1 M1) false)
+(check-expect (is-hit? I1 M2) true)
+(check-expect (is-hit? I4 (make-missile (- (invader-x I4) 9) (+ (invader-y I4) 9))) true)
+
+;(define (is-hit? i m) false) ;stub
+
+(define (is-hit? i m)
+  (and (<= (abs (- (invader-x i)  (missile-x m))) HIT-RANGE)
+       (<= (abs (- (invader-y i) (missile-y m))) HIT-RANGE)))
 
 ;---------------------- Missile Functions -------------------------------------------------------------------
 
@@ -352,7 +391,7 @@
 ;;(define (next-game g) G0) ;stub
 
 (define (next-game g)
-  (make-game (add-invader (advance-invaders (game-invaders g))) (advance-missiles (game-missiles g))
+  (make-game (destroy-invaders (add-invader (advance-invaders (game-invaders g))) (game-missiles g)) (advance-missiles (game-missiles g))
              (next-tank (game-tank g))))
 
 ;; Game -> Image
@@ -370,7 +409,7 @@
 (define (handle-key g ke)
   (cond [(key=? ke "left") (make-game (game-invaders g) (game-missiles g) (turn-tank (game-tank g) -1))]
         [(key=? ke "right") (make-game (game-invaders g) (game-missiles g) (turn-tank (game-tank g) 1))]
-        [(key=? ke " ") (make-game (game-invaders g) (cons (make-missile (tank-x (game-tank g)) HEIGHT) (game-missiles g)) (game-tank g))]
+        [(key=? ke " ") (make-game (game-invaders g) (cons (make-missile (tank-x (game-tank g)) ( - HEIGHT (image-height TANK)) ) (game-missiles g)) (game-tank g))]
         [else 
          g]))
 
@@ -394,7 +433,8 @@
 (check-expect (landed? (list I1)) false)
 (check-expect (landed? (list I3)) true)
 
-;(define (landed i) false) ;stub
+;;(define (landed? i) false) ;stub
+
 
 (define (landed? loi)
   (cond[(empty? loi) false]
