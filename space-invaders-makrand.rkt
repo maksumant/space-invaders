@@ -386,7 +386,7 @@
 
 
 ;; ListOfMissiles -> ListOfMissiles
-;; Cleans up missiles which leaves the screen, i.e. which have y coordinate < 0.
+;; Cleans up missiles which leave the screen, i.e. which have y coordinate < 0.
 (check-expect (cleanup-missiles empty) empty)
 (check-expect (cleanup-missiles LOM2) LOM2)
 (check-expect (cleanup-missiles (cons (make-missile 150 -3) LOM2)) LOM2)
