@@ -3,12 +3,12 @@
 #reader(lib "htdp-beginner-abbr-reader.ss" "lang")((modname space-invaders-makrand) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #f #t none #f () #f)))
 (require 2htdp/universe)
 (require 2htdp/image)
-(require racket/list)
 
 ;; Space Invaders By Makrand Sumant
 
-
+;; =================
 ;; Constants:
+;; =================
 
 (define WIDTH  300)
 (define HEIGHT 500)
@@ -352,7 +352,6 @@
   (make-missile (missile-x m) (- (missile-y m) MISSILE-SPEED))
   )
 
-
 ;; ListOfMissiles -> ListOfMissiles
 ;; produces list containing next state of each of the missiles from the passed in list. Advances each of the missile in upward direction.
 
@@ -400,8 +399,8 @@
                    (cleanup-missiles (rest lom))
                    (cons (first lom) (cleanup-missiles (rest lom)))
                    )]
+         )
   )
-)
 
 
 ;=====================================================    Game Functions   =================================================================
